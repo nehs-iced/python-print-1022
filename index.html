@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Python 圖形挑戰與 PyScript 執行器</title>
+    <title>Python Print Challenge</title>
     <link rel="stylesheet" href="https://pyscript.net/releases/2024.4.1/core.css">
     <script type="module" src="https://pyscript.net/releases/2024.4.1/core.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
@@ -20,13 +20,14 @@
         @keyframes fadeIn { from {opacity:0; transform:translateY(10px);} to {opacity:1; transform:translateY(0);} }
         @keyframes fadeOut { from {opacity:1; transform:translateY(0);} to {opacity:0; transform:translateY(10px);} }
         .animate-fade-in { animation: fadeIn 0.5s ease-out; } .animate-fade-out { animation: fadeOut 0.5s ease-in forwards; }
+        .warning-box { background-color: #fef3c7; border-left: 4px solid #f59e0b; color: #92400e; }
     </style>
 </head>
 <body class="p-4 sm:p-8">
     <div class="max-w-7xl mx-auto">
         <header class="mb-8">
-            <h1 class="text-4xl font-bold text-gray-800 mb-2">Python 圖形生成挑戰 (PyScript 執行)</h1>
-            <p class="text-gray-500">編寫 Python 程式碼，生成與題目圖形相符的文字輸出，並在瀏覽器中即時運行和比對。</p>
+            <h1 class="text-4xl font-bold text-gray-800 mb-2">Python Print Challenge</h1>
+            <p class="text-gray-500">This is where all great Python journeys begin. It's mostly downhill from here. <a herf="This is where all great Python journeys begin. It's mostly downhill from here.">上次上課的簡報</a></p>
         </header>
 
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -47,7 +48,17 @@
                     <div id="expectedOutput" class="scroll-area text-sm">請等待 PyScript 初始化載入題目。</div>
                 </div>
                 <div class="mt-6 p-4 bg-blue-100 border-l-4 border-blue-500 text-blue-800 rounded-lg text-sm">
-                    <strong>💡 提示：</strong> 程式碼將在您的瀏覽器中運行。如果執行錯誤，請檢查下方的輸出區。
+                    <strong>💡 提示：</strong> 請使用 for 迴圈來解題，不要直接複製預期輸出！
+                </div>
+                <div class="mt-4 p-4 warning-box rounded-lg text-sm">
+                    <strong>⚠️ 規則：</strong>
+                    <ul class="mt-2 space-y-1 list-disc list-inside">
+                        <li>禁止使用三引號 <code>"""</code> 或 <code>'''</code></li>
+                        <li>禁止在單一 print 中放入過多換行</li>
+                        <li>必須使用迴圈結構解題</li>
+                        <li>禁止使用超過 5 個獨立 print 語句</li>
+                        <li>禁止重複相同結構的 print</li>
+                    </ul>
                 </div>
             </div>
 
@@ -75,7 +86,6 @@
         </div>
     </div>
 
-    <!-- Toast 通知 -->
     <div id="initToast" class="hidden fixed bottom-6 right-6 bg-gray-800 text-white rounded-xl shadow-lg p-4 flex items-start gap-3 w-80 animate-fade-in">
         <div class="bg-indigo-500 rounded-full w-8 h-8 flex items-center justify-center flex-shrink-0"><span class="text-xl">✨</span></div>
         <div class="flex-1">
@@ -136,25 +146,122 @@
             }
         }
 
+        function validateCode(code) {
+            // 檢查是否使用三引號
+            if (code.includes('"""') || code.includes("'''")) {
+                return { valid: false, message: '❌ 禁止使用三引號（""" 或 \'\'\'）！請使用迴圈來解題。' };
+            }
+
+            // 檢查是否有過多的 \n 在字串中（暴力解的特徵）
+            const stringMatches = code.match(/['"]([^'"]*)['"]/g) || [];
+            for (let str of stringMatches) {
+                const newlineCount = (str.match(/\\n/g) || []).length;
+                if (newlineCount > 3) {
+                    return { valid: false, message: '❌ 單一字串中不應包含過多換行符！請使用迴圈分批輸出。' };
+                }
+            }
+
+            // 移除註解和空行後計算實際程式碼行數
+            const codeLines = code.split('\n')
+                .map(line => line.trim())
+                .filter(line => line && !line.startsWith('#'));
+
+            // 計算 print 語句數量
+            const printCount = codeLines.filter(line => 
+                line.includes('print(') || line.startsWith('print ')
+            ).length;
+
+            // 如果 print 語句超過 5 個，必須要有迴圈
+            if (printCount > 5) {
+                if (!code.includes('for') && !code.includes('while')) {
+                    return { valid: false, message: '❌ 超過 5 個 print 語句！請使用迴圈來簡化程式碼。' };
+                }
+            }
+
+            // 檢查是否包含 for 或 while（鼓勵使用迴圈）
+            if (!code.includes('for') && !code.includes('while')) {
+                return { valid: false, message: '⚠️ 建議使用 for 或 while 迴圈來解題！' };
+            }
+
+            // 偵測重複的 print 模式（暴力解特徵）
+            const printStatements = codeLines.filter(line => line.includes('print('));
+            if (printStatements.length >= 4) {
+                // 檢查是否有連續 4 個以上相似結構的 print
+                let similarCount = 0;
+                for (let i = 0; i < printStatements.length - 1; i++) {
+                    const current = printStatements[i].replace(/['"][^'"]*['"]/, 'STR');
+                    const next = printStatements[i + 1].replace(/['"][^'"]*['"]/, 'STR');
+                    if (current === next) {
+                        similarCount++;
+                        if (similarCount >= 3) {
+                            return { valid: false, message: '❌ 偵測到重複的 print 模式！請使用迴圈來產生重複結構。' };
+                        }
+                    } else {
+                        similarCount = 0;
+                    }
+                }
+            }
+
+            // 檢查單行 print 是否過長（可能是複製答案）
+            for (let line of codeLines) {
+                if (line.includes('print') && line.length > 100) {
+                    return { valid: false, message: '❌ print 語句過長，請使用迴圈分批輸出！' };
+                }
+            }
+
+            return { valid: true };
+        }
+
         function runPythonCode() {
             if (!isPyScriptReady) { outputArea.textContent = "PyScript 尚未完全載入"; return; }
             if (typeof window.executePythonCode !== 'function') {
                 outputArea.textContent = "Python 執行器尚未就緒。";
                 statusMessage.textContent = '⚠️ 無法執行'; return;
             }
+
+            const code = codeEditor.value;
+            const validation = validateCode(code);
+            
+            if (!validation.valid) {
+                outputArea.textContent = validation.message;
+                statusMessage.textContent = validation.message;
+                statusMessage.classList.remove('text-green-600');
+                statusMessage.classList.add('text-red-600');
+                return;
+            }
+
             const id=document.getElementById('problemSelector').value,p=PROBLEMS[id];
             runButton.disabled=true;runButton.textContent='⏳ 執行中...';
             statusMessage.textContent='正在執行...';outputArea.textContent='';
             try {
-                const o=window.executePythonCode(codeEditor.value),exp=p.expected;
-                if(o.startsWith("程式碼執行錯誤：\n")){outputArea.textContent=o;statusMessage.textContent='❌ 執行錯誤';}
+                const o=window.executePythonCode(code),exp=p.expected;
+                if(o.startsWith("程式碼執行錯誤：\n")){
+                    outputArea.textContent=o;
+                    statusMessage.textContent='❌ 執行錯誤';
+                    statusMessage.classList.remove('text-green-600');
+                    statusMessage.classList.add('text-red-600');
+                }
                 else{
                     outputArea.textContent=o;
                     const cleanO=o.trim().replace(/\r\n/g,"\n"),cleanE=exp.trim().replace(/\r\n/g,"\n");
-                    if(cleanO===cleanE){statusMessage.textContent='✅ 完全相符！';}
-                    else{statusMessage.textContent='❌ 不符！請檢查空格與換行。';outputArea.textContent+=`\n\n--- 比對結果提示 ---\n請確認空格與換行是否一致。`;}
+                    if(cleanO===cleanE){
+                        statusMessage.textContent='✅ 完全相符！太棒了！';
+                        statusMessage.classList.remove('text-red-600');
+                        statusMessage.classList.add('text-green-600');
+                    }
+                    else{
+                        statusMessage.textContent='❌ 輸出不符！請檢查空格與換行。';
+                        statusMessage.classList.remove('text-green-600');
+                        statusMessage.classList.add('text-red-600');
+                        outputArea.textContent+=`\n\n--- 比對結果提示 ---\n請確認空格與換行是否一致。`;
+                    }
                 }
-            } catch(e){outputArea.textContent=`JS 錯誤：${e.message}`;statusMessage.textContent='❌ 執行失敗';}
+            } catch(e){
+                outputArea.textContent=`JS 錯誤：${e.message}`;
+                statusMessage.textContent='❌ 執行失敗';
+                statusMessage.classList.remove('text-green-600');
+                statusMessage.classList.add('text-red-600');
+            }
             runButton.disabled=false;runButton.textContent='🚀 執行程式碼並檢查';
         }
 
