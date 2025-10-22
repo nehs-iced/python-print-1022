@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Python 圖形挑戰與 PyScript 執行器</title>
+    <link rel="stylesheet" href="https://pyscript.net/releases/2024.4.1/core.css">
+    <script type="module" src="https://pyscript.net/releases/2024.4.1/core.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #f7f9fb; color: #1e293b; }
+        .code-window { background-color: #282c34; border-radius: 0.75rem; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -2px rgba(0,0,0,0.05); overflow: hidden; }
+        .code-header { background-color: #3e4451; padding: 0.5rem 1rem; display: flex; align-items: center; border-bottom: 1px solid #4b5263; }
+        .dot { width: 12px; height: 12px; border-radius: 50%; margin-right: 8px; }
+        .red-dot { background-color: #ff5f56; } .yellow-dot { background-color: #ffbd2e; } .green-dot { background-color: #27c93f; }
+        #codeEditor { font-family: 'Fira Code', monospace; min-height: 300px; tab-size: 4; background-color: #282c34; color: #dcdfe4; padding: 1rem 1.5rem; line-height: 1.4; border: none; outline: none; resize: none; overflow: auto; }
+        #output, #expectedOutput { font-family: monospace; white-space: pre-wrap; min-height: 100px; background-color: #1e293b; color: #0dff75; padding: 1rem; border-radius: 0.5rem; overflow-y: auto; box-shadow: inset 0 2px 4px rgba(0,0,0,0.1); line-height: 1.2; }
+        .scroll-area::-webkit-scrollbar { width: 8px; } .scroll-area::-webkit-scrollbar-thumb { background-color: #94a3b8; border-radius: 4px; }
+        @keyframes fadeIn { from {opacity:0; transform:translateY(10px);} to {opacity:1; transform:translateY(0);} }
+        @keyframes fadeOut { from {opacity:1; transform:translateY(0);} to {opacity:0; transform:translateY(10px);} }
+        .animate-fade-in { animation: fadeIn 0.5s ease-out; } .animate-fade-out { animation: fadeOut 0.5s ease-in forwards; }
+    </style>
+</head>
+<body class="p-4 sm:p-8">
+    <div class="max-w-7xl mx-auto">
+        <header class="mb-8">
+            <h1 class="text-4xl font-bold text-gray-800 mb-2">Python 圖形生成挑戰 (PyScript 執行)</h1>
+            <p class="text-gray-500">編寫 Python 程式碼，生成與題目圖形相符的文字輸出，並在瀏覽器中即時運行和比對。</p>
+        </header>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <div class="lg:col-span-1 bg-white p-6 rounded-xl shadow-lg h-full">
+                <h2 class="text-2xl font-semibold mb-4 text-indigo-600">題目區 (問題 <span id="currentProblemId">1</span>)</h2>
+                <div class="mb-4">
+                    <label for="problemSelector" class="block text-sm font-medium text-gray-700 mb-2">選擇問題編號 (1-10)</label>
+                    <select id="problemSelector" onchange="loadProblem(this.value)" class="w-full p-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500">
+                        <script>for (let i = 1; i <= 10; i++) document.write(`<option value="${i}">問題 ${i}</option>`);</script>
+                    </select>
+                </div>
+                <div class="mb-6">
+                    <h3 class="text-xl font-medium mb-2 text-gray-800">描述</h3>
+                    <p id="problemDescription" class="text-gray-600 bg-gray-50 p-3 rounded-lg border border-gray-200">正在載入題目...</p>
+                </div>
+                <div>
+                    <h3 class="text-xl font-medium mb-2 text-gray-800">預期文字圖形</h3>
+                    <div id="expectedOutput" class="scroll-area text-sm">請等待 PyScript 初始化載入題目。</div>
+                </div>
+                <div class="mt-6 p-4 bg-blue-100 border-l-4 border-blue-500 text-blue-800 rounded-lg text-sm">
+                    <strong>💡 提示：</strong> 程式碼將在您的瀏覽器中運行。如果執行錯誤，請檢查下方的輸出區。
+                </div>
+            </div>
+
+            <div class="lg:col-span-2 space-y-8">
+                <div>
+                    <h2 class="text-2xl font-semibold mb-4 text-indigo-600">您的 Python 程式碼</h2>
+                    <div class="code-window">
+                        <div class="code-header">
+                            <div class="dot red-dot"></div><div class="dot yellow-dot"></div><div class="dot green-dot"></div>
+                            <span class="text-xs text-gray-400 ml-2">challenge.py</span>
+                        </div>
+                        <textarea id="codeEditor" class="w-full border-0 focus:ring-0"></textarea>
+                    </div>
+                    <button id="runButton" onclick="runPythonCode()" disabled class="mt-4 w-full sm:w-auto px-6 py-3 bg-indigo-600 text-white font-bold rounded-lg shadow-md hover:bg-indigo-700 transition transform hover:scale-[1.01] disabled:opacity-50 disabled:cursor-not-allowed">
+                        🚀 執行程式碼並檢查
+                    </button>
+                    <p id="statusMessage" class="mt-4 text-lg font-semibold min-h-[1.5em] text-yellow-600"></p>
+                </div>
+
+                <div class="bg-white p-6 rounded-xl shadow-lg">
+                    <h2 class="text-2xl font-semibold mb-4 text-indigo-600">程式碼執行輸出</h2>
+                    <div id="output" class="scroll-area text-sm"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast 通知 -->
+    <div id="initToast" class="hidden fixed bottom-6 right-6 bg-gray-800 text-white rounded-xl shadow-lg p-4 flex items-start gap-3 w-80 animate-fade-in">
+        <div class="bg-indigo-500 rounded-full w-8 h-8 flex items-center justify-center flex-shrink-0"><span class="text-xl">✨</span></div>
+        <div class="flex-1">
+            <h3 class="font-semibold text-base mb-1">Python 環境載入完成！</h3>
+            <p class="text-sm text-gray-300">您現在可以開始編寫並執行程式碼。</p>
+        </div>
+        <button onclick="hideToast()" class="text-gray-400 hover:text-gray-200 ml-2">✕</button>
+    </div>
+
+    <script>
+        const PROBLEMS = {
+            "1": { "description": "#1 請輸出一個由星號（*）組成的右下直角三角形，高度為 5 行，每行星號數依次遞增 1。", "expected": "*\n**\n***\n****\n*****" },
+            "2": { "description": "#2 請輸出一個由星號（*）組成的菱形，共 9 行，上半部為 5 行、下半部為 4 行。每行星號間以空格分隔，整體需對稱排列。", "expected": "     *\n    * *\n   * * *\n  * * * *\n * * * * *\n  * * * *\n   * * *\n    * *\n     *" },
+            "3": { "description": "#3 請輸出一個直角數字三角形，高度為 5 行。第 i 行重複印出數字 i（例如第三行印出三個 3）。", "expected": "1\n22\n333\n4444\n55555" },
+            "4": { "description": "#4 請輸出一個 9x9 的數字同心方塊。外層為數字 5，向中心遞減至 1，再遞增回 5，形成對稱方形。", "expected": "555555555\n544444445\n543333345\n543222345\n543212345\n543222345\n543333345\n544444445\n555555555" },
+            "5": { "description": "#5 請輸出一個字母直角三角形，高度為 5 行。第 i 行重複印出第 i 個英文字母（A 到 E）。", "expected": "A\nBB\nCCC\nDDDD\nEEEEE" },
+            "6": { "description": "#6 請依序輸出多段圖形：包含矩形、數字序列與字母序列，中間以空行分隔。整體輸出必須與範例完全一致（注意換行）。", "expected": "*\n*\n*\n*\n*\n\n*****\n1\n2\n3\n4\n5\n\n12345\nA\nB\nC\nD\nE\n\nABCDE\n" },
+            "7": { "description": "#7 請輸出多層重疊的星號圖案，包含不同寬度與間隔的組合。請確保空格與換行位置完全符合預期。", "expected": "*  \n** \n***\n*  *  \n** ** \n******\n*  *  *  \n** ** ** \n*********\n*  *  *  *  \n** ** ** ** \n************\n" },
+            "8": { "description": "#8 請輸出一個空心的等腰三角形，上寬下寬為 8 層。最底層為連續星號，其餘行為首尾各一星號，中間留空。", "expected": "       *\n      * *\n     *   *\n    *     *\n   *       *\n  *         *\n *           *\n* * * * * * * * \n" },
+            "9": { "description": "#9 請輸出一個由星號（*）組成的沙漏圖形，高度為 9 行。星號數量由上而下遞減至中心，再遞增回原始寬度。", "expected": "*********\n *******\n  *****\n   ***\n    *\n   ***\n  *****\n *******\n*********" },
+            "10": { "description": "#10 請輸出一個由兩個左右對稱的等腰三角形組成的圖形，共 9 行，每行由星號 (*) 形成，並且需要左右對稱且置中排列。", "expected": "*       *\n**     **\n***   ***\n**** ****\n*********\n**** ****\n***   ***\n**     **\n*       *\n" }
+        };
+
+        const codeEditor = document.getElementById('codeEditor');
+        const outputArea = document.getElementById('output');
+        const expectedOutputArea = document.getElementById('expectedOutput');
+        const problemDescription = document.getElementById('problemDescription');
+        const currentProblemId = document.getElementById('currentProblemId');
+        const statusMessage = document.getElementById('statusMessage');
+        const runButton = document.getElementById('runButton');
+        let isPyScriptReady = false;
+
+        function showToast(){const t=document.getElementById('initToast');t.classList.remove('hidden');t.classList.add('animate-fade-in');setTimeout(()=>hideToast(),5000);}
+        function hideToast(){const t=document.getElementById('initToast');t.classList.remove('animate-fade-in');t.classList.add('animate-fade-out');setTimeout(()=>t.classList.add('hidden'),500);}
+
+        function notifyPyScriptReady() {
+            setTimeout(() => {
+                isPyScriptReady = true;
+                runButton.disabled = false;
+                statusMessage.textContent = '✅ Python 環境載入完成！可以開始編寫和運行程式碼了。';
+                statusMessage.classList.remove('text-yellow-600', 'text-gray-500');
+                statusMessage.classList.add('text-green-600');
+                showToast();
+                loadProblem('1');
+            }, 50);
+        }
+        window.notifyPyScriptReady = notifyPyScriptReady;
+
+        function loadProblem(id) {
+            const p = PROBLEMS[id];
+            if (p) {
+                currentProblemId.textContent = id;
+                problemDescription.textContent = p.description;
+                expectedOutputArea.textContent = p.expected;
+                if (isPyScriptReady) {statusMessage.textContent = '✅ Python 環境載入完成！';}
+                outputArea.textContent = '請執行您的程式碼...';
+                codeEditor.value = (id === '1') ? "# 問題 1: 直角三角形\nfor i in range(1, 6):\n    print('*' * i)" : "# 從這裡開始編寫 Python 程式碼\n";
+            }
+        }
+
+        function runPythonCode() {
+            if (!isPyScriptReady) { outputArea.textContent = "PyScript 尚未完全載入"; return; }
+            if (typeof window.executePythonCode !== 'function') {
+                outputArea.textContent = "Python 執行器尚未就緒。";
+                statusMessage.textContent = '⚠️ 無法執行'; return;
+            }
+            const id=document.getElementById('problemSelector').value,p=PROBLEMS[id];
+            runButton.disabled=true;runButton.textContent='⏳ 執行中...';
+            statusMessage.textContent='正在執行...';outputArea.textContent='';
+            try {
+                const o=window.executePythonCode(codeEditor.value),exp=p.expected;
+                if(o.startsWith("程式碼執行錯誤：\n")){outputArea.textContent=o;statusMessage.textContent='❌ 執行錯誤';}
+                else{
+                    outputArea.textContent=o;
+                    const cleanO=o.trim().replace(/\r\n/g,"\n"),cleanE=exp.trim().replace(/\r\n/g,"\n");
+                    if(cleanO===cleanE){statusMessage.textContent='✅ 完全相符！';}
+                    else{statusMessage.textContent='❌ 不符！請檢查空格與換行。';outputArea.textContent+=`\n\n--- 比對結果提示 ---\n請確認空格與換行是否一致。`;}
+                }
+            } catch(e){outputArea.textContent=`JS 錯誤：${e.message}`;statusMessage.textContent='❌ 執行失敗';}
+            runButton.disabled=false;runButton.textContent='🚀 執行程式碼並檢查';
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            runButton.disabled = true;
+            statusMessage.textContent = '🟡 正在載入 Python 環境...';
+            outputArea.textContent = '等待 Python 初始化...';
+        });
+    </script>
+
+    <script type="py">
+import io, sys, js
+def execute_user_code(code):
+    old=sys.stdout;buf=io.StringIO();sys.stdout=buf
+    try: exec(code); return buf.getvalue()
+    except Exception as e: return f"程式碼執行錯誤：\n{e}"
+    finally: sys.stdout=old
+js.window.executePythonCode=execute_user_code
+js.window.notifyPyScriptReady()
+    </script>
+</body>
+</html>
